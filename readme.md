@@ -68,7 +68,7 @@
     * `room_id`: ルームID（必須）
     * `status`: タスクのステータス（"open"または"done"、デフォルトは"open"）
   * **出力**: 指定されたルームのタスク一覧（JSON形式）
-  
+
 * **環境変数**:
   * `CHATWORK_API`: ChatWork APIのアクセストークン
 
@@ -80,7 +80,7 @@
     * `guildId`: Discordサーバー（Guild）のID（必須）
     * `channelId`: 特定のチャンネルID（オプション）
     * `messageLimit`: 取得するメッセージの最大数（オプション、デフォルトは30）
-  * **出力**: 
+  * **出力**:
     * 取得したメッセージの数と内容（JSON形式）
     * 各メッセージにはチャンネル名、チャンネルID、投稿者名、投稿者ID、投稿内容、タイムスタンプが含まれます
   * **環境変数**:
@@ -119,6 +119,16 @@
       "env": {
         "DISCORD_ACCESS_TOKEN": "your_discord_token"
       }
+    },
+    "ga4-analysis": {
+      "command": "bun",
+      "args": ["run", "src/ga4.ts"], // Adjust if you have a build step or use node
+      "cwd": "/Users/yoshinoyunosuke/Desktop/playground/ai/mcp-server", // Ensure this is the correct path to your project
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/your/service-account-key.json" // Replace with the actual path to your key file
+      },
+      "disabled": false, // Ensure it's enabled
+      "autoApprove": []
     }
   }
 }
