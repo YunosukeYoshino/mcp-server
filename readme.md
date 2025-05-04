@@ -1,6 +1,6 @@
 # MCP Server
 
-このプロジェクトは、[Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) を活用した、拡張ツールサーバーを提供します。Brave Search API、ChatWork API、Discord APIを活用した複数のツールサーバーを実装しています。
+このプロジェクトは、[Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) を活用した、拡張ツールサーバーを提供します。Brave Search API、ChatWork API、Discord API、Shopify APIを活用した複数のツールサーバーを実装しています。
 
 ## プロジェクトの構成
 
@@ -17,6 +17,10 @@
 3. **Discord Message Fetcher (`discord-mcp.ts`)**
    * Discord APIを使用して、Discordサーバーからメッセージを取得します。
    * 特定のサーバー(Guild)やチャンネルのメッセージを取得し分析できます。
+
+4. **Shopify Sales Analytics Server (`shopify.ts`)**
+   * Shopify Admin GraphQL APIを使用して、売上データを分析します。
+   * 売上サマリー、商品別売上、売上トレンドなどの情報を提供します。
 
 ## 機能
 
@@ -86,6 +90,52 @@
   * **環境変数**:
     * `DISCORD_ACCESS_TOKEN`: Discord APIのアクセストークン
 
+### Shopify Sales Analytics Server (`shopify.ts`)
+
+* **`get_sales_summary` ツール**:
+  * **説明**: 特定の期間の売上データのサマリーを取得します。
+  * **入力**:
+    * `startDate`: 開始日（ISO形式：YYYY-MM-DD）（必須）
+    * `endDate`: 終了日（ISO形式：YYYY-MM-DD）（必須）
+    * `currencyCode`: 通貨コードでフィルタリング（例：USD）（オプション）
+  * **出力**: 売上サマリー情報（JSON形式）
+    * 総注文数
+    * 総売上額
+    * 平均注文金額
+    * 割引総額
+    * 配送料総額
+    * 税金総額
+
+* **`get_sales_by_product` ツール**:
+  * **説明**: 商品別にグループ化された売上データを取得します。
+  * **入力**:
+    * `startDate`: 開始日（ISO形式：YYYY-MM-DD）（必須）
+    * `endDate`: 終了日（ISO形式：YYYY-MM-DD）（必須）
+    * `limit`: 取得する商品数（デフォルトは10）（オプション）
+  * **出力**: 商品別の売上データ（JSON形式）
+    * 商品ID
+    * 商品名
+    * 販売数量
+    * 売上額
+    * 平均販売価格
+
+* **`get_sales_trends` ツール**:
+  * **説明**: 時間経過による売上トレンドを取得します（日次、週次、または月次）。
+  * **入力**:
+    * `startDate`: 開始日（ISO形式：YYYY-MM-DD）（必須）
+    * `endDate`: 終了日（ISO形式：YYYY-MM-DD）（必須）
+    * `interval`: 集計間隔（"daily"、"weekly"、"monthly"）（必須）
+  * **出力**: 期間ごとの売上トレンドデータ（JSON形式）
+    * 期間（日付または期間範囲）
+    * 注文数
+    * 売上額
+    * 平均注文金額
+
+* **環境変数**:
+  * `SHOPIFY_SHOP_DOMAIN`: Shopifyショップのドメイン
+  * `SHOPIFY_ACCESS_TOKEN`: Shopify Admin APIのアクセストークン
+  * `SHOPIFY_API_VERSION`: Shopify APIのバージョン（デフォルトは2024-07）
+
 ## Claudeとの連携
 
 以下の設定例を使用して、Claudeとこれらのサーバーを連携できます。
@@ -118,6 +168,17 @@
       ],
       "env": {
         "DISCORD_ACCESS_TOKEN": "your_discord_token"
+      }
+    },
+    "shopify-sales-analytics": {
+      "command": "node",
+      "args": [
+        "/path/to/mcp-server/dist/shopify.js"
+      ],
+      "env": {
+        "SHOPIFY_SHOP_DOMAIN": "your-shop.myshopify.com",
+        "SHOPIFY_ACCESS_TOKEN": "your_shopify_access_token",
+        "SHOPIFY_API_VERSION": "2024-07"
       }
     },
     "ga4-analysis": {
@@ -163,6 +224,7 @@
    node dist/brave-mcp.js  # Brave検索サーバー
    node dist/chatwork-mcp.js  # ChatWorkサーバー
    node dist/discord-mcp.js  # Discordサーバー
+   node dist/shopify.js  # Shopify売上分析サーバー
    ```
 
 ## 注意事項
