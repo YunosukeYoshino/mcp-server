@@ -21,18 +21,18 @@ interface ShopifyConfig {
 // 環境変数から設定を読み取る
 const ENV_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
 const ENV_SHOP_DOMAIN = process.env.SHOPIFY_SHOP_DOMAIN;
-const ENV_API_VERSION = process.env.SHOPIFY_API_VERSION || '2024-07'; // デフォルトは最新バージョン
+const ENV_API_VERSION = process.env.SHOPIFY_API_VERSION || "2024-07"; // デフォルトは最新バージョン
 
-// 環境変数から初期設定を読み取る
+// Shopify API 設定を環境変数から初期化
 let shopifyConfig: ShopifyConfig | null = null;
 
-// Initialize from environment variables if available
-if (ENV_ACCESS_TOKEN && ENV_SHOP_DOMAIN) {
-  console.log(`Initialized Shopify config from environment variables: ${ENV_SHOP_DOMAIN}, API version: ${ENV_API_VERSION}`);
+// 環境変数に必要な値がすべて含まれている場合、自動的に設定
+if (ENV_SHOP_DOMAIN && ENV_ACCESS_TOKEN) {
+  console.log(`Shopify client auto-configured for shop: ${ENV_SHOP_DOMAIN} with API version: ${ENV_API_VERSION}`);
   shopifyConfig = {
     shopDomain: ENV_SHOP_DOMAIN,
     accessToken: ENV_ACCESS_TOKEN,
-    apiVersion: ENV_API_VERSION
+    apiVersion: ENV_API_VERSION,
   };
 }
 
@@ -54,7 +54,7 @@ async function executeShopifyGraphQL(query: string, variables: any = {}) {
   if (!shopifyConfig) {
     throw new McpError(
       ErrorCode.InvalidRequest,
-      "Shopify configuration not set. Call setup_shopify_client first."
+      "Shopify configuration not set. Please set SHOPIFY_SHOP_DOMAIN, SHOPIFY_ACCESS_TOKEN, and SHOPIFY_API_VERSION environment variables."
     );
   }
 
@@ -87,14 +87,16 @@ async function executeShopifyGraphQL(query: string, variables: any = {}) {
     if (axios.isAxiosError(error)) {
       throw new McpError(
         ErrorCode.InternalError,
-        `Shopify API Error: ${error.message}. Status: ${error.response?.status}. Data: ${JSON.stringify(
-          error.response?.data
-        )}`
+        `Shopify API Error: ${error.message}. Status: ${
+          error.response?.status
+        }. Data: ${JSON.stringify(error.response?.data)}`
       );
     }
     throw new McpError(
       ErrorCode.InternalError,
-      `Error executing Shopify GraphQL: ${error instanceof Error ? error.message : String(error)}`
+      `Error executing Shopify GraphQL: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
   }
 }
@@ -104,27 +106,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
       {
-        name: "setup_shopify_client",
-        description: "Shopify APIクライアントをショップドメインとアクセストークンで設定",
-        inputSchema: {
-          type: "object",
-          properties: {
-            shopDomain: { type: "string", description: "Shopify shop domain (e.g., your-store.myshopify.com)" },
-            accessToken: { type: "string", description: "Shopify Admin API access token" },
-            apiVersion: { type: "string", description: "Shopify API version (e.g., 2024-07)" },
-          },
-          required: ["shopDomain", "accessToken", "apiVersion"],
-        },
-      },
-      {
         name: "get_sales_summary",
         description: "特定の期間の売上データのサマリーを取得",
         inputSchema: {
           type: "object",
           properties: {
-            startDate: { type: "string", description: "Start date in ISO format (YYYY-MM-DD)" },
-            endDate: { type: "string", description: "End date in ISO format (YYYY-MM-DD)" },
-            currencyCode: { type: "string", description: "Filter by currency code (e.g., USD)" },
+            startDate: {
+              type: "string",
+              description: "Start date in ISO format (YYYY-MM-DD)",
+            },
+            endDate: {
+              type: "string",
+              description: "End date in ISO format (YYYY-MM-DD)",
+            },
+            currencyCode: {
+              type: "string",
+              description: "Filter by currency code (e.g., USD)",
+            },
           },
           required: ["startDate", "endDate"],
         },
@@ -135,25 +133,42 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            startDate: { type: "string", description: "Start date in ISO format (YYYY-MM-DD)" },
-            endDate: { type: "string", description: "End date in ISO format (YYYY-MM-DD)" },
-            limit: { type: "number", description: "Number of products to return (default: 10)" },
+            startDate: {
+              type: "string",
+              description: "Start date in ISO format (YYYY-MM-DD)",
+            },
+            endDate: {
+              type: "string",
+              description: "End date in ISO format (YYYY-MM-DD)",
+            },
+            limit: {
+              type: "number",
+              description: "Number of products to return (default: 10)",
+            },
           },
           required: ["startDate", "endDate"],
         },
       },
       {
         name: "get_sales_trends",
-        description: "時間経過による売上トレンドを取得（日次、週次、または月次）",
+        description:
+          "時間経過による売上トレンドを取得（日次、週次、または月次）",
         inputSchema: {
           type: "object",
           properties: {
-            startDate: { type: "string", description: "Start date in ISO format (YYYY-MM-DD)" },
-            endDate: { type: "string", description: "End date in ISO format (YYYY-MM-DD)" },
-            interval: { 
-              type: "string", 
-              description: "Time interval for grouping (daily, weekly, monthly)",
-              enum: ["daily", "weekly", "monthly"] 
+            startDate: {
+              type: "string",
+              description: "Start date in ISO format (YYYY-MM-DD)",
+            },
+            endDate: {
+              type: "string",
+              description: "End date in ISO format (YYYY-MM-DD)",
+            },
+            interval: {
+              type: "string",
+              description:
+                "Time interval for grouping (daily, weekly, monthly)",
+              enum: ["daily", "weekly", "monthly"],
             },
           },
           required: ["startDate", "endDate", "interval"],
@@ -169,57 +184,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const args = request.params.arguments as any;
 
   try {
-    // Shopify クライアントのセットアップ
-    if (toolName === "setup_shopify_client") {
-      // 引数から値を取得、または環境変数からの値を使用
-      const shopDomain = args.shopDomain || ENV_SHOP_DOMAIN;
-      const accessToken = args.accessToken || ENV_ACCESS_TOKEN;
-      const apiVersion = args.apiVersion || ENV_API_VERSION;
-
-      if (!shopDomain || !accessToken || !apiVersion) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "shopDomain, accessToken, and apiVersion are required for setup_shopify_client. " +
-          "これらは引数として指定するか、環境変数(SHOPIFY_SHOP_DOMAIN, SHOPIFY_ACCESS_TOKEN, SHOPIFY_API_VERSION)で設定してください。"
-        );
-      }
-
-      shopifyConfig = {
-        shopDomain,
-        accessToken,
-        apiVersion,
-      };
-
-      // 簡単なクエリを実行して接続をテスト
-      try {
-        const testQuery = `{
-          shop {
-            name
-            myshopifyDomain
-          }
-        }`;
-
-        const result = await executeShopifyGraphQL(testQuery);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Shopify client successfully configured for shop: ${result.shop.name} (${result.shop.myshopifyDomain})`,
-            },
-          ],
-        };
-      } catch (error) {
-        shopifyConfig = null; // Reset config on error
-        throw error; // Re-throw to be caught by outer catch
-      }
-    }
+    // setup_shopify_client toolは削除 - 環境変数から自動的に構成されるようになりました
 
     // Shopify クライアントが設定されているか確認
-    if (!shopifyConfig && toolName !== "setup_shopify_client") {
+    if (!shopifyConfig) {
       throw new McpError(
         ErrorCode.InvalidRequest,
-        "Shopify client not configured. Call setup_shopify_client first."
+        "Shopify client not configured. Please set SHOPIFY_SHOP_DOMAIN, SHOPIFY_ACCESS_TOKEN, and SHOPIFY_API_VERSION environment variables."
       );
     }
 
@@ -273,8 +244,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     currencyCode
                   }
                 }
-                financialStatus
-                fulfillmentStatus
+                # ステータスフィールドを削除しておきます
                 # 顧客情報は含まないようにしています
               }
             }
@@ -287,7 +257,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       `;
 
       // クエリフィルターの構築
-      let queryFilter = `created_at:>=${startDate} created_at:<=${endDate} financial_status:paid`;
+      let queryFilter = `created_at:>=${startDate} created_at:<=${endDate} status:any`;
       if (currencyCode) {
         queryFilter += ` currency:${currencyCode}`;
       }
@@ -332,9 +302,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const totalPrice = parseFloat(order.totalPriceSet.shopMoney.amount);
         const currencyCode = order.totalPriceSet.shopMoney.currencyCode;
         const discounts = parseFloat(order.totalDiscountsSet.shopMoney.amount);
-        const shipping = parseFloat(order.totalShippingPriceSet.shopMoney.amount);
+        const shipping = parseFloat(
+          order.totalShippingPriceSet.shopMoney.amount
+        );
         const tax = parseFloat(order.totalTaxSet.shopMoney.amount);
-        const status = order.financialStatus;
+        // ステータスフィールドは使用しないようにします
 
         summary.totalSales += totalPrice;
         summary.totalDiscounts += discounts;
@@ -347,17 +319,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
         summary.salesByCurrency[currencyCode] += totalPrice;
 
-        // ステータスごとにグループ化
-        if (!summary.salesByStatus[status]) {
-          summary.salesByStatus[status] = 0;
+        // ステータス別の売上を記録しないように修正
+        // すべて「その他」に分類
+        if (!summary.salesByStatus['other']) {
+          summary.salesByStatus['other'] = 0;
         }
-        summary.salesByStatus[status] += totalPrice;
+        summary.salesByStatus['other'] += totalPrice;
       });
 
       // 平均注文金額の計算
-      summary.averageOrderValue = summary.totalOrders > 0 
-        ? summary.totalSales / summary.totalOrders 
-        : 0;
+      summary.averageOrderValue =
+        summary.totalOrders > 0 ? summary.totalSales / summary.totalOrders : 0;
 
       // 読みやすさのために数値をフォーマット
       const formattedSummary = {
@@ -454,7 +426,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       `;
 
-      const queryFilter = `created_at:>=${startDate} created_at:<=${endDate} financial_status:paid`;
+      const queryFilter = `created_at:>=${startDate} created_at:<=${endDate} status:any`;
       const variables = {
         query: queryFilter,
         first: 50, // Adjust based on your needs
@@ -464,18 +436,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const orders = data.orders.edges.map((edge: any) => edge.node);
 
       // 商品ごとにラインアイテムをグループ化して処理
-      const productSales: Record<string, {
-        productId: string;
-        productTitle: string;
-        totalQuantity: number;
-        totalSales: number;
-        currencyCode: string;
-        orders: number;
-      }> = {};
+      const productSales: Record<
+        string,
+        {
+          productId: string;
+          productTitle: string;
+          totalQuantity: number;
+          totalSales: number;
+          currencyCode: string;
+          orders: number;
+        }
+      > = {};
 
       orders.forEach((order: any) => {
         const lineItems = order.lineItems.edges.map((edge: any) => edge.node);
-        
+
         lineItems.forEach((item: any) => {
           const productId = item.product?.id || item.title;
           const productTitle = item.product?.title || item.title;
@@ -504,10 +479,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const sortedProductSales = Object.values(productSales)
         .sort((a, b) => b.totalSales - a.totalSales)
         .slice(0, limit)
-        .map(product => ({
+        .map((product) => ({
           ...product,
           totalSales: parseFloat(product.totalSales.toFixed(2)),
-          averageOrderValue: parseFloat((product.totalSales / product.orders).toFixed(2)),
+          averageOrderValue: parseFloat(
+            (product.totalSales / product.orders).toFixed(2)
+          ),
         }));
 
       return {
@@ -536,7 +513,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // 間隔の検証
-      if (!['daily', 'weekly', 'monthly'].includes(interval)) {
+      if (!["daily", "weekly", "monthly"].includes(interval)) {
         throw new McpError(
           ErrorCode.InvalidParams,
           "interval must be one of: daily, weekly, monthly"
@@ -569,7 +546,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       `;
 
-      const queryFilter = `created_at:>=${startDate} created_at:<=${endDate} financial_status:paid`;
+      const queryFilter = `created_at:>=${startDate} created_at:<=${endDate} status:any`;
       const variables = {
         query: queryFilter,
         first: 250, // Adjust based on your needs
@@ -579,11 +556,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const orders = data.orders.edges.map((edge: any) => edge.node);
 
       // 時間間隔ごとに注文をグループ化
-      const salesByInterval: Record<string, {
-        period: string;
-        totalSales: number;
-        orderCount: number;
-      }> = {};
+      const salesByInterval: Record<
+        string,
+        {
+          period: string;
+          totalSales: number;
+          orderCount: number;
+        }
+      > = {};
 
       orders.forEach((order: any) => {
         const createdAt = new Date(order.createdAt);
@@ -592,20 +572,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         // 間隔に基づいて期間キーをフォーマット
         switch (interval) {
-          case 'daily':
-            periodKey = createdAt.toISOString().split('T')[0]; // YYYY-MM-DD
+          case "daily":
+            periodKey = createdAt.toISOString().split("T")[0]; // YYYY-MM-DD
             break;
-          case 'weekly':
+          case "weekly":
             // 週の開始日（日曜日）を取得
             const weekStart = new Date(createdAt);
             weekStart.setDate(createdAt.getDate() - createdAt.getDay());
-            periodKey = weekStart.toISOString().split('T')[0];
+            periodKey = weekStart.toISOString().split("T")[0];
             break;
-          case 'monthly':
-            periodKey = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, '0')}`;
+          case "monthly":
+            periodKey = `${createdAt.getFullYear()}-${String(
+              createdAt.getMonth() + 1
+            ).padStart(2, "0")}`;
             break;
           default:
-            periodKey = createdAt.toISOString().split('T')[0];
+            periodKey = createdAt.toISOString().split("T")[0];
         }
 
         if (!salesByInterval[periodKey]) {
@@ -623,10 +605,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // 配列に変換し、期間でソート
       const sortedSalesTrends = Object.values(salesByInterval)
         .sort((a, b) => a.period.localeCompare(b.period))
-        .map(trend => ({
+        .map((trend) => ({
           ...trend,
           totalSales: parseFloat(trend.totalSales.toFixed(2)),
-          averageOrderValue: parseFloat((trend.totalSales / trend.orderCount).toFixed(2)),
+          averageOrderValue: parseFloat(
+            (trend.totalSales / trend.orderCount).toFixed(2)
+          ),
         }));
 
       return {
@@ -644,18 +628,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     // 不明なツール
-    throw new McpError(
-      ErrorCode.InvalidRequest,
-      `Unknown tool: ${toolName}`
-    );
+    throw new McpError(ErrorCode.InvalidRequest, `Unknown tool: ${toolName}`);
   } catch (error) {
-    console.error("Error in Shopify MCP server:", error);
+    // エラーをファイルにログ出力するか、標準エラー出力に出力する
+    process.stderr.write(`Error in Shopify MCP server: ${error}
+`);
     if (error instanceof McpError) {
       throw error;
     }
     throw new McpError(
       ErrorCode.InternalError,
-      `Error processing request: ${error instanceof Error ? error.message : String(error)}`
+      `Error processing request: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
   }
 });
