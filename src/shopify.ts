@@ -28,7 +28,7 @@ let shopifyConfig: ShopifyConfig | null = null;
 
 // 環境変数に必要な値がすべて含まれている場合、自動的に設定
 if (ENV_SHOP_DOMAIN && ENV_ACCESS_TOKEN) {
-  console.log(`Shopify client auto-configured for shop: ${ENV_SHOP_DOMAIN} with API version: ${ENV_API_VERSION}`);
+  console.error(`Shopify client auto-configured for shop: ${ENV_SHOP_DOMAIN} with API version: ${ENV_API_VERSION}`);
   shopifyConfig = {
     shopDomain: ENV_SHOP_DOMAIN,
     accessToken: ENV_ACCESS_TOKEN,
@@ -45,6 +45,8 @@ const server = new Server(
   {
     capabilities: {
       tools: {},
+      resources: { listChanged: false },
+      prompts: { listChanged: false }
     },
   }
 );
@@ -631,8 +633,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new McpError(ErrorCode.InvalidRequest, `Unknown tool: ${toolName}`);
   } catch (error) {
     // エラーをファイルにログ出力するか、標準エラー出力に出力する
-    process.stderr.write(`Error in Shopify MCP server: ${error}
-`);
+    console.error(`Error in Shopify MCP server:`, error);
     if (error instanceof McpError) {
       throw error;
     }
@@ -643,6 +644,53 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }`
     );
   }
+});
+
+// 標準的なMCPメソッドのハンドラを追加 - 実際のツールリストを返す
+// カスタムリクエストスキーマを定義
+import { z } from "zod";
+import { RequestSchema } from "@modelcontextprotocol/sdk/types.js";
+
+// resources/list用のスキーマを定義
+const ResourcesListRequestSchema = RequestSchema.extend({
+  method: z.literal("resources/list"),
+  params: z.object({}).optional()
+});
+
+// prompts/list用のスキーマを定義
+const PromptsListRequestSchema = RequestSchema.extend({
+  method: z.literal("prompts/list"),
+  params: z.object({}).optional()
+});
+
+// resources/listハンドラ
+server.setRequestHandler(ResourcesListRequestSchema, async () => {
+  // 実際のツールリストを返す
+  return {
+    resources: [
+      {
+        name: "shopify-sales-data",
+        description: "Shopify売上データ分析ツール"
+      }
+    ]
+  };
+});
+
+// prompts/listハンドラ
+server.setRequestHandler(PromptsListRequestSchema, async () => {
+  // 実際のプロンプトリストを返す
+  return {
+    prompts: [
+      {
+        name: "sales-analysis",
+        description: "売上データの分析を行います"
+      },
+      {
+        name: "product-performance",
+        description: "商品別のパフォーマンス分析を行います"
+      }
+    ]
+  };
 });
 
 // サーバーを起動
